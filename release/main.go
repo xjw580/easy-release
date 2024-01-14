@@ -306,7 +306,7 @@ func getFilesInDirectory(dirPath string, extensions []string) ([]string, error) 
 	return files, nil
 }
 
-func SetLogs(logs common.Logs) {
+func RequireLogs(logs common.Logs) {
 	guiLogs = logs
 }
 

@@ -3,43 +3,39 @@ package gui
 import (
 	"easy-release/common"
 	"easy-release/release"
-	"encoding/json"
 	_ "encoding/json"
-	"fmt"
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
 	"github.com/lxn/win"
 	_ "github.com/lxn/win"
-	"io/ioutil"
 	"log"
-	"os"
-	"path/filepath"
 	"syscall"
 )
 
 type MyWindow struct {
-	mainWin                                                                                           *walk.MainWindow
-	goRadio, javaMavenRadio                                                                           *walk.RadioButton
-	githubCheckBox, giteeCheckBox, pushCheckBox, packageCheckBox, releaseCheckBox, allProgramCheckBox *walk.CheckBox
-	versionLineEdit                                                                                   *walk.LineEdit
-	logTextEdit, commentTextEdit                                                                      *walk.TextEdit
+	mainWin                                                                                                                                              *walk.MainWindow
+	goRadio, javaMavenRadio                                                                                                                              *walk.RadioButton
+	githubCheckBox, giteeCheckBox, pushCheckBox, packageCheckBox, releaseCheckBox, allProgramCheckBox, zipFileCheckBox, jarFileCheckBox, exeFileCheckBox *walk.CheckBox
+	versionLineEdit                                                                                                                                      *walk.LineEdit
+	logTextEdit, commitMsgTextEdit                                                                                                                       *walk.TextEdit
 }
 
 const (
-	winWidth       = 800
-	winHeight      = 1000
-	configFilePath = "C:\\ProgramData\\" + common.ProgramName + "\\config.json"
+	winWidth  = 800
+	winHeight = 1000
 )
 
 var mw = new(MyWindow)
 
 func init() {
+	image, _ := walk.Resources.Image("embedded_favicon.ico")
 	err2 := MainWindow{
 		Title:    common.ProgramName,
+		Icon:     image,
 		AssignTo: &mw.mainWin,
 		Bounds: Rectangle{
 			X:      int(getDisplayWidth()-winWidth) / 2,
-			Y:      int(getDisplayHeight()-winHeight) / 2,
+			Y:      int(getDisplayHeight()-winHeight-40) / 2,
 			Width:  winWidth,
 			Height: winHeight,
 		},
@@ -85,12 +81,26 @@ func init() {
 						Text:     "Java-Maven",
 						Row:      1,
 						Column:   1,
+						OnClicked: func() {
+							if mw.javaMavenRadio.Checked() {
+								mw.zipFileCheckBox.SetChecked(true)
+								mw.jarFileCheckBox.SetChecked(true)
+								mw.exeFileCheckBox.SetChecked(false)
+							}
+						},
 					},
 					RadioButton{
 						AssignTo: &mw.goRadio,
 						Text:     "Go",
 						Row:      1,
 						Column:   2,
+						OnClicked: func() {
+							if mw.goRadio.Checked() {
+								mw.zipFileCheckBox.SetChecked(false)
+								mw.jarFileCheckBox.SetChecked(false)
+								mw.exeFileCheckBox.SetChecked(true)
+							}
+						},
 					},
 
 					Label{
@@ -101,6 +111,7 @@ func init() {
 					CheckBox{
 						AssignTo: &mw.giteeCheckBox,
 						Text:     "Gitee",
+						Checked:  true,
 						Row:      2,
 						Column:   1,
 					},
@@ -127,21 +138,24 @@ func init() {
 						ColumnSpan: 1,
 					},
 					CheckBox{
-						Text:    ".zip",
-						Checked: true,
-						Row:     3,
-						Column:  1,
+						AssignTo: &mw.zipFileCheckBox,
+						Text:     ".zip",
+						Checked:  true,
+						Row:      3,
+						Column:   1,
 					},
 					CheckBox{
-						Text:    ".jar",
-						Checked: true,
-						Row:     3,
-						Column:  2,
+						AssignTo: &mw.jarFileCheckBox,
+						Text:     ".jar",
+						Checked:  true,
+						Row:      3,
+						Column:   2,
 					},
 					CheckBox{
-						Text:   ".exe",
-						Row:    3,
-						Column: 3,
+						AssignTo: &mw.exeFileCheckBox,
+						Text:     ".exe",
+						Row:      3,
+						Column:   3,
 					},
 
 					Composite{
@@ -155,6 +169,11 @@ func init() {
 							},
 							LineEdit{
 								AssignTo: &mw.versionLineEdit,
+								OnKeyPress: func(key walk.Key) {
+									if key.String() == "Return" {
+										_ = mw.commitMsgTextEdit.SetFocus()
+									}
+								},
 							},
 						},
 						Row:    4,
@@ -173,7 +192,7 @@ func init() {
 								Text: "版本说明：",
 							},
 							TextEdit{
-								AssignTo: &mw.commentTextEdit,
+								AssignTo: &mw.commitMsgTextEdit,
 								VScroll:  true,
 							},
 						},
@@ -187,7 +206,21 @@ func init() {
 			Composite{
 				Layout: VBox{},
 				Children: []Widget{
-					Label{Text: "输出日志："},
+					Composite{
+						Layout: HBox{},
+						Children: []Widget{
+							Label{Text: "输出日志："},
+							PushButton{
+								MaxSize: Size{
+									Width: 80,
+								},
+								Text: "清空日志",
+								OnClicked: func() {
+									_ = mw.logTextEdit.SetText("")
+								},
+							},
+						},
+					},
 					TextEdit{
 						AssignTo: &mw.logTextEdit,
 						VScroll:  true,
@@ -205,17 +238,23 @@ func init() {
 					CheckBox{
 						AssignTo: &mw.pushCheckBox,
 						Text:     "推送",
-						Checked:  true,
+						OnClicked: func() {
+							progressCheck()
+						},
 					},
 					CheckBox{
 						AssignTo: &mw.packageCheckBox,
 						Text:     "打包",
-						Checked:  true,
+						OnClicked: func() {
+							progressCheck()
+						},
 					},
 					CheckBox{
 						AssignTo: &mw.releaseCheckBox,
 						Text:     "发布",
-						Checked:  true,
+						OnClicked: func() {
+							progressCheck()
+						},
 					},
 					PushButton{
 						MaxSize: Size{Width: 50},
@@ -223,13 +262,45 @@ func init() {
 						OnClicked: func() {
 							go func() {
 								setAlwaysOnTop(mw.mainWin.Handle(), true)
+								mw.logTextEdit.AppendText("++++++++++++++++++++开始执行++++++++++++++++++++\r\n")
+								/*项目类型*/
+								var project release.ProjectType
 								if mw.javaMavenRadio.Checked() {
-									project := new(release.JavaMavenProject)
-									project.PackageProject()
+									project = new(release.JavaMavenProject)
 								} else if mw.goRadio.Checked() {
-									project := new(release.GoProject)
+									project = new(release.GoProject)
+								}
+								/*git平台*/
+								var platforms []release.GitPlatform
+								if mw.githubCheckBox.Checked() {
+									platforms = append(platforms, release.GithubPlatform)
+								}
+								if mw.giteeCheckBox.Checked() {
+									platforms = append(platforms, release.GiteePlatform)
+								}
+								/*push*/
+								if mw.pushCheckBox.Checked() {
+									project.PushPlatform(platforms)
+								}
+								/*package*/
+								if mw.packageCheckBox.Checked() {
 									project.PackageProject()
 								}
+								/*release*/
+								if mw.releaseCheckBox.Checked() {
+									var fileTypes []string
+									if mw.zipFileCheckBox.Checked() {
+										fileTypes = append(fileTypes, mw.zipFileCheckBox.Text())
+									}
+									if mw.jarFileCheckBox.Checked() {
+										fileTypes = append(fileTypes, mw.jarFileCheckBox.Text())
+									}
+									if mw.exeFileCheckBox.Checked() {
+										fileTypes = append(fileTypes, mw.exeFileCheckBox.Text())
+									}
+									project.ReleasePackage(fileTypes, mw.commitMsgTextEdit.Text(), mw.versionLineEdit.Text(), platforms)
+								}
+								mw.logTextEdit.AppendText("++++++++++++++++++++执行完毕++++++++++++++++++++\r\n")
 								setAlwaysOnTop(mw.mainWin.Handle(), false)
 							}()
 						},
@@ -237,7 +308,17 @@ func init() {
 					CheckBox{
 						AssignTo: &mw.allProgramCheckBox,
 						Text:     "全部",
-						Checked:  true,
+						OnClicked: func() {
+							if mw.allProgramCheckBox.Checked() {
+								mw.pushCheckBox.SetChecked(true)
+								mw.packageCheckBox.SetChecked(true)
+								mw.releaseCheckBox.SetChecked(true)
+							} else {
+								mw.pushCheckBox.SetChecked(false)
+								mw.packageCheckBox.SetChecked(false)
+								mw.releaseCheckBox.SetChecked(false)
+							}
+						},
 					},
 				},
 			},
@@ -251,8 +332,12 @@ func init() {
 	mw.mainWin.Run()
 }
 
-func giteeSettings() {
-
+func progressCheck() {
+	if mw.pushCheckBox.Checked() && mw.packageCheckBox.Checked() && mw.releaseCheckBox.Checked() {
+		mw.allProgramCheckBox.SetChecked(true)
+	} else {
+		mw.allProgramCheckBox.SetChecked(false)
+	}
 }
 
 func initMsg() {
@@ -261,7 +346,7 @@ func initMsg() {
 	commitMessage, _ := release.GetLatestCommitMessage()
 	version, _ := release.ParseVersionAndPreRelease(commitMessage)
 	_ = mw.versionLineEdit.SetText(version)
-	_ = mw.commentTextEdit.SetText(commitMessage)
+	_ = mw.commitMsgTextEdit.SetText(commitMessage)
 }
 
 /*
@@ -296,13 +381,22 @@ func setAlwaysOnTop(hwnd win.HWND, onTop bool) {
 		win.SetWindowPos(hwnd, win.HWND_NOTOPMOST, 0, 0, 0, 0, win.SWP_NOMOVE|win.SWP_NOSIZE)
 	}
 }
+
+func giteeSettings() {
+	config, _ := common.ReadConfigFromFile()
+	showGitSettingsWindow("Gitee设置", &config.GiteeRepository, &config)
+}
 func githubSettings() {
-	var githubSettingsMW *walk.MainWindow
+	config, _ := common.ReadConfigFromFile()
+	showGitSettingsWindow("Github设置", &config.GithubRepository, &config)
+}
+
+func showGitSettingsWindow(title string, repository *common.GitRepository, config *common.Config) {
+	var gitSettingsMW *walk.MainWindow
 	var ownerLineEdit, repoNameLineEdit, tokenLineEdit *walk.LineEdit
-	loadedConfig, _ := readConfigFromFile(configFilePath)
 	_ = MainWindow{
-		AssignTo: &githubSettingsMW,
-		Title:    common.ProgramName + "-Github设置",
+		AssignTo: &gitSettingsMW,
+		Title:    common.ProgramName + "-" + title,
 		Font: Font{
 			PointSize: 11,
 		},
@@ -325,6 +419,11 @@ func githubSettings() {
 				AssignTo: &ownerLineEdit,
 				Row:      0,
 				Column:   1,
+				OnKeyPress: func(key walk.Key) {
+					if key.String() == "Return" {
+						_ = repoNameLineEdit.SetFocus()
+					}
+				},
 			},
 
 			Label{
@@ -336,6 +435,11 @@ func githubSettings() {
 				AssignTo: &repoNameLineEdit,
 				Row:      1,
 				Column:   1,
+				OnKeyPress: func(key walk.Key) {
+					if key.String() == "Return" {
+						_ = tokenLineEdit.SetFocus()
+					}
+				},
 			},
 
 			Label{
@@ -347,6 +451,11 @@ func githubSettings() {
 				AssignTo: &tokenLineEdit,
 				Row:      2,
 				Column:   1,
+				OnKeyPress: func(key walk.Key) {
+					if key.String() == "Return" {
+						_ = ownerLineEdit.SetFocus()
+					}
+				},
 			},
 
 			Composite{
@@ -358,11 +467,12 @@ func githubSettings() {
 							Width: 50,
 						},
 						OnClicked: func() {
-							loadedConfig.GithubRepository.Owner = ownerLineEdit.Text()
-							loadedConfig.GithubRepository.RepoName = repoNameLineEdit.Text()
-							loadedConfig.GithubRepository.Token = tokenLineEdit.Text()
-							writeConfigToFile(loadedConfig, configFilePath)
+							repository.Owner = ownerLineEdit.Text()
+							repository.RepoName = repoNameLineEdit.Text()
+							repository.Token = tokenLineEdit.Text()
+							_ = common.WriteConfigToFile(*config)
 							log.Println("保存成功")
+							_ = gitSettingsMW.Close()
 						},
 					},
 				},
@@ -373,71 +483,8 @@ func githubSettings() {
 		},
 	}.Create()
 
-	ownerLineEdit.SetText(loadedConfig.GithubRepository.Owner)
-	repoNameLineEdit.SetText(loadedConfig.GithubRepository.RepoName)
-	tokenLineEdit.SetText(loadedConfig.GithubRepository.Token)
-	fmt.Println(loadedConfig)
-	githubSettingsMW.Run()
-}
-
-func readConfigFromFile(filename string) (Config, error) {
-	var config Config
-	open, err2 := os.Open(configFilePath)
-	defer open.Close()
-	if err2 != nil {
-		// 创建文件所在目录，如果目录不存在的话
-		err := os.MkdirAll(filepath.Dir(configFilePath), os.ModePerm)
-		if err != nil {
-			fmt.Println("Error creating directory:", err)
-			return config, err
-		}
-
-		// 创建文件
-		file, err := os.Create(configFilePath)
-		if err != nil {
-			fmt.Println("Error creating file:", err)
-			return config, err
-		}
-		defer file.Close()
-		config = Config{
-			GithubRepository: GitRepository{
-				Owner:    "",
-				RepoName: "",
-				Token:    "",
-			},
-			GiteeRepository: GitRepository{
-				Owner:    "",
-				RepoName: "",
-				Token:    "",
-			},
-		}
-		writeConfigToFile(config, configFilePath)
-
-		return config, nil
-	}
-
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return config, err
-	}
-
-	err = json.Unmarshal(data, &config)
-	return config, err
-}
-func writeConfigToFile(config Config, filename string) error {
-	data, err := json.MarshalIndent(config, "", "  ")
-	if err != nil {
-		return err
-	}
-	return ioutil.WriteFile(filename, data, 0644)
-}
-
-type Config struct {
-	GiteeRepository  GitRepository
-	GithubRepository GitRepository
-}
-type GitRepository struct {
-	Owner    string `json:"name"`
-	RepoName string `json:"repoName"`
-	Token    string `json:"token"`
+	ownerLineEdit.SetText(repository.Owner)
+	repoNameLineEdit.SetText(repository.RepoName)
+	tokenLineEdit.SetText(repository.Token)
+	gitSettingsMW.Run()
 }

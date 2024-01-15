@@ -96,12 +96,16 @@ func releaseAll(fileTypes []string, commitMessage, releaseTag, packageDir string
 return tagName, name, body, prerelease, packageFile
 */
 func getReleaseMsg(fileTypes []string, commitMessage, releaseVersion, packageDir string) (string, string, string, bool, []string) {
-	_, prerelease := ParseVersionAndPreRelease(commitMessage)
+	version, prerelease := ParseVersionAndPreRelease(commitMessage)
 	commitMessage = "#### " + commitMessage
 	packageFile := getJavaMavenPackageFile(fileTypes, packageDir)
 	fileName := filepath.Base(packageFile[0])
 	index := strings.LastIndex(fileName, ".")
-	return releaseVersion, fileName[:index], commitMessage, prerelease, packageFile
+	title := fileName[:index]
+	if !strings.Contains(title, "v") {
+		title = title + "_" + version
+	}
+	return releaseVersion, title, commitMessage, prerelease, packageFile
 }
 
 func releaseGithub(fileTypes []string, commitMessage, releaseVersion, packageDir string) {

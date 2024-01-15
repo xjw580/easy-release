@@ -212,6 +212,15 @@ func init() {
 							Label{Text: "输出日志："},
 							PushButton{
 								MaxSize: Size{
+									Width: 110,
+								},
+								Text: "刷新版本信息",
+								OnClicked: func() {
+									setVersionMsg()
+								},
+							},
+							PushButton{
+								MaxSize: Size{
 									Width: 80,
 								},
 								Text: "清空日志",
@@ -301,6 +310,7 @@ func init() {
 									project.ReleasePackage(fileTypes, mw.commitMsgTextEdit.Text(), mw.versionLineEdit.Text(), platforms)
 								}
 								mw.logTextEdit.AppendText("++++++++++++++++++++执行完毕++++++++++++++++++++\r\n")
+								mw.logTextEdit.AppendText("\r\n                            .__          __             .___\r\n  ____  ____   _____ ______ |  |   _____/  |_  ____   __| _/\r\n_/ ___\\/  _ \\ /     \\\\____ \\|  | _/ __ \\   __\\/ __ \\ / __ | \r\n\\  \\__(  <_> )  Y Y  \\  |_> >  |_\\  ___/|  | \\  ___// /_/ | \r\n \\___  >____/|__|_|  /   __/|____/\\___  >__|  \\___  >____ | \r\n     \\/            \\/|__|             \\/          \\/     \\/ \r\n")
 								setAlwaysOnTop(mw.mainWin.Handle(), false)
 							}()
 						},
@@ -343,6 +353,9 @@ func progressCheck() {
 func initMsg() {
 	release.RequireLogs(new(GUILogs))
 	mw.javaMavenRadio.SetChecked(true)
+	setVersionMsg()
+}
+func setVersionMsg() {
 	commitMessage, _ := release.GetLatestCommitMessage()
 	version, _ := release.ParseVersionAndPreRelease(commitMessage)
 	_ = mw.versionLineEdit.SetText(version)

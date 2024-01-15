@@ -216,7 +216,7 @@ func init() {
 								},
 								Text: "刷新版本信息",
 								OnClicked: func() {
-									setVersionMsg()
+									go setVersionMsg()
 								},
 							},
 							PushButton{
@@ -279,6 +279,10 @@ func init() {
 								} else if mw.goRadio.Checked() {
 									project = new(release.GoProject)
 								}
+								/*package*/
+								if mw.packageCheckBox.Checked() {
+									project.PackageProject()
+								}
 								/*git平台*/
 								var platforms []release.GitPlatform
 								if mw.githubCheckBox.Checked() {
@@ -290,10 +294,6 @@ func init() {
 								/*push*/
 								if mw.pushCheckBox.Checked() {
 									project.PushPlatform(platforms)
-								}
-								/*package*/
-								if mw.packageCheckBox.Checked() {
-									project.PackageProject()
 								}
 								/*release*/
 								if mw.releaseCheckBox.Checked() {
@@ -338,7 +338,7 @@ func init() {
 		log.Println(err2)
 		return
 	}
-	initMsg()
+	go initMsg()
 	mw.mainWin.Run()
 }
 

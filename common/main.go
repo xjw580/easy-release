@@ -31,9 +31,12 @@ type GitRepository struct {
 
 func ReadConfigFromFile() (Config, error) {
 	var config Config
-	isCreate, err2 := createFile(GlobalConfigFilePath)
-	if err2 == nil && !isCreate {
-		copyFile(GlobalConfigFilePath, ConfigFilePath)
+	_, err3 := os.Open(ConfigFilePath)
+	if err3 != nil {
+		_, err2 := createFile(GlobalConfigFilePath)
+		if err2 == nil {
+			_ = copyFile(GlobalConfigFilePath, ConfigFilePath)
+		}
 	}
 
 	data, err := ioutil.ReadFile(ConfigFilePath)

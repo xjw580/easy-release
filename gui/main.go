@@ -25,16 +25,24 @@ const (
 	winHeight = 1000
 )
 
-var mw = new(MyWindow)
+var (
+	mw         = new(MyWindow)
+	programIco walk.Image
+)
 
-func ShowMain() {
-	image, err := walk.Resources.Image("embedded_favicon.ico")
+func init() {
+	var err error
+	programIco, err = walk.Resources.Image("embedded_favicon.ico")
 	if err != nil {
 		log.Println("embedded_favicon.ico读取失败")
 	}
+}
+
+func ShowMain() {
+
 	err2 := MainWindow{
 		Title:    common.ProgramName,
-		Icon:     image,
+		Icon:     programIco,
 		AssignTo: &mw.mainWin,
 		Bounds: Rectangle{
 			X:      int(getDisplayWidth()-winWidth) / 2,
@@ -416,6 +424,7 @@ func showGitSettingsWindow(title string, repository *common.GitRepository, confi
 		Font: Font{
 			PointSize: 11,
 		},
+		Icon: programIco,
 		Background: SolidColorBrush{
 			Color: walk.RGB(224, 240, 253),
 		},

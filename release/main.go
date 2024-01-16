@@ -28,12 +28,12 @@ var (
 	githubRepository *common.GitRepository
 )
 
-type GitPlatform string
-
 const (
 	GiteePlatform  = "Gitee"
 	GithubPlatform = "Github"
 )
+
+type GitPlatform string
 
 type ProjectType interface {
 	PushPlatform(gitPlatform []GitPlatform)
@@ -68,6 +68,7 @@ func (project GoProject) PushPlatform(gitPlatform []GitPlatform) {
 }
 func (project GoProject) PackageProject() {
 	guiLogs.AppendLog("++++++++++++++++++++开始打包++++++++++++++++++++")
+	delExeFile()
 	err := execCMD("go", "build", "-ldflags", "-H=windowsgui")
 	if err == nil {
 		guiLogs.AppendLog("++++++++++++++++++++打包成功")
@@ -79,6 +80,66 @@ func (project GoProject) ReleasePackage(fileTypes []string, commitMessage, relea
 	releaseAll(fileTypes, commitMessage, releaseVersion, "", gitPlatform)
 }
 
+func ParseVersionAndPreRelease(commitMessage string) (string, bool) {
+	lines := strings.Split(commitMessage, "\n")
+	if len(lines) > 0 {
+		// 解析版本号，假设版本号在提交信息的第一行
+		version := strings.TrimSpace(lines[0])
+
+		// 判断是否预发布
+		prerelease := strings.HasSuffix(version, "DEV") || strings.HasSuffix(version, "BETA")
+
+		return version, prerelease
+	}
+
+	// 如果没有版本号，默认使用 "v1.0.0" 并标记为非预发布
+	return "v1.0.0", false
+}
+
+func GetLatestCommitMessage() (string, error) {
+	cmd := exec.Command("git", "log", "-1", "--pretty=%B")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+func RequireLogs(logs common.Logs) {
+	guiLogs = logs
+}
+
+func delExeFile() {
+	// 获取当前工作目录
+	currentDir, err := os.Getwd()
+	if err != nil {
+		fmt.Println("Error getting current directory:", err)
+		return
+	}
+
+	// 遍历当前目录下的所有文件
+	err = filepath.Walk(currentDir, func(path string, info os.FileInfo, err error) error {
+		// 检查文件是否是exe文件
+		if !info.IsDir() && strings.HasSuffix(info.Name(), ".exe") {
+			// 删除exe文件
+			err := os.Remove(path)
+			if err != nil {
+				fmt.Println("Error deleting file:", err)
+				return err
+			}
+			fmt.Println("Deleted:", path)
+		}
+		return nil
+	})
+
+	if err != nil {
+		fmt.Println("Error walking the path:", err)
+		return
+	}
+
+	fmt.Println("Deletion complete.")
+}
+
 func releaseAll(fileTypes []string, commitMessage, releaseTag, packageDir string, gitPlatform []GitPlatform) {
 	for _, platform := range gitPlatform {
 		switch platform {
@@ -88,7 +149,6 @@ func releaseAll(fileTypes []string, commitMessage, releaseTag, packageDir string
 			releaseGithub(fileTypes, commitMessage, releaseTag, packageDir)
 		}
 	}
-
 }
 
 /*
@@ -141,7 +201,7 @@ func releaseGithub(fileTypes []string, commitMessage, releaseVersion, packageDir
 	}
 	guiLogs.AppendLog("开始上传")
 	for _, s := range packageFile {
-		uploadFile(s, client, ctx, release, *githubRepository)
+		uploadFileToGithubRelease(s, client, ctx, release, *githubRepository)
 	}
 	guiLogs.AppendLog("上传结束")
 }
@@ -197,7 +257,7 @@ func push(origin, localBranch, remoteBranch string) {
 	}
 }
 
-func uploadFile(path string, client *github.Client, ctx context.Context, release *github.RepositoryRelease, repository common.GitRepository) {
+func uploadFileToGithubRelease(path string, client *github.Client, ctx context.Context, release *github.RepositoryRelease, repository common.GitRepository) {
 	// 打开本地文件
 	file, err := os.Open(path)
 	if err != nil {
@@ -279,31 +339,6 @@ func execCMD(name string, arg ...string) error {
 	return nil
 }
 
-func ParseVersionAndPreRelease(commitMessage string) (string, bool) {
-	lines := strings.Split(commitMessage, "\n")
-	if len(lines) > 0 {
-		// 解析版本号，假设版本号在提交信息的第一行
-		version := strings.TrimSpace(lines[0])
-
-		// 判断是否预发布
-		prerelease := strings.HasSuffix(version, "DEV") || strings.HasSuffix(version, "BETA")
-
-		return version, prerelease
-	}
-
-	// 如果没有版本号，默认使用 "v1.0.0" 并标记为非预发布
-	return "v1.0.0", false
-}
-
-func GetLatestCommitMessage() (string, error) {
-	cmd := exec.Command("git", "log", "-1", "--pretty=%B")
-	output, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(output)), nil
-}
-
 func getFilesInDirectory(dirPath string, extensions []string) ([]string, error) {
 	var files []string
 
@@ -329,8 +364,4 @@ func getFilesInDirectory(dirPath string, extensions []string) ([]string, error) 
 	}
 
 	return files, nil
-}
-
-func RequireLogs(logs common.Logs) {
-	guiLogs = logs
 }

@@ -27,8 +27,11 @@ const (
 
 var mw = new(MyWindow)
 
-func init() {
-	image, _ := walk.Resources.Image("embedded_favicon.ico")
+func ShowMain() {
+	image, err := walk.Resources.Image("embedded_favicon.ico")
+	if err != nil {
+		log.Println("embedded_favicon.ico读取失败")
+	}
 	err2 := MainWindow{
 		Title:    common.ProgramName,
 		Icon:     image,
@@ -245,15 +248,15 @@ func init() {
 						Text: "过程：",
 					},
 					CheckBox{
-						AssignTo: &mw.pushCheckBox,
-						Text:     "推送",
+						AssignTo: &mw.packageCheckBox,
+						Text:     "打包",
 						OnClicked: func() {
 							progressCheck()
 						},
 					},
 					CheckBox{
-						AssignTo: &mw.packageCheckBox,
-						Text:     "打包",
+						AssignTo: &mw.pushCheckBox,
+						Text:     "推送",
 						OnClicked: func() {
 							progressCheck()
 						},

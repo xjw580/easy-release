@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 )
 
 func init() {
@@ -69,7 +70,7 @@ func (project GoProject) PushPlatform(gitPlatform []GitPlatform) {
 func (project GoProject) PackageProject() {
 	guiLogs.AppendLog("++++++++++++++++++++开始打包++++++++++++++++++++")
 	delExeFile()
-	err := execCMD("go", "build", "-ldflags", "-H=windowsgui")
+	err := execCMD("go", "build", "-ldflags", "-s -w -H=windowsgui")
 	if err == nil {
 		guiLogs.AppendLog("++++++++++++++++++++打包成功")
 	} else {
@@ -302,6 +303,8 @@ func getJavaMavenPackageFile(fileTypes []string, packageDir string) []string {
 
 func execCMD(name string, arg ...string) error {
 	cmd := exec.Command(name, arg...)
+	// 隐藏窗口
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		guiLogs.AppendLog(err.Error())

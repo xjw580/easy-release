@@ -9,6 +9,8 @@ import (
 	"github.com/lxn/win"
 	_ "github.com/lxn/win"
 	"log"
+	"os"
+	"path/filepath"
 	"syscall"
 )
 
@@ -39,9 +41,9 @@ func init() {
 }
 
 func ShowMain() {
-
+	currentDir, _ := os.Getwd()
 	err2 := MainWindow{
-		Title:    common.ProgramName,
+		Title:    common.ProgramName + "【" + filepath.Base(currentDir) + "】",
 		Icon:     programIco,
 		AssignTo: &mw.mainWin,
 		Bounds: Rectangle{
@@ -281,7 +283,7 @@ func ShowMain() {
 						Text:    "执行",
 						OnClicked: func() {
 							go func() {
-								setAlwaysOnTop(mw.mainWin.Handle(), true)
+								//setAlwaysOnTop(mw.mainWin.Handle(), true)
 								mw.logTextEdit.AppendText("++++++++++++++++++++开始执行++++++++++++++++++++\r\n")
 								/*项目类型*/
 								var project release.ProjectType
@@ -322,7 +324,7 @@ func ShowMain() {
 								}
 								mw.logTextEdit.AppendText("++++++++++++++++++++执行完毕++++++++++++++++++++\r\n")
 								mw.logTextEdit.AppendText("\r\n                            .__          __             .___\r\n  ____  ____   _____ ______ |  |   _____/  |_  ____   __| _/\r\n_/ ___\\/  _ \\ /     \\\\____ \\|  | _/ __ \\   __\\/ __ \\ / __ | \r\n\\  \\__(  <_> )  Y Y  \\  |_> >  |_\\  ___/|  | \\  ___// /_/ | \r\n \\___  >____/|__|_|  /   __/|____/\\___  >__|  \\___  >____ | \r\n     \\/            \\/|__|             \\/          \\/     \\/ \r\n")
-								setAlwaysOnTop(mw.mainWin.Handle(), false)
+								//setAlwaysOnTop(mw.mainWin.Handle(), false)
 							}()
 						},
 					},

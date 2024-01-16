@@ -99,6 +99,7 @@ func ParseVersionAndPreRelease(commitMessage string) (string, bool) {
 
 func GetLatestCommitMessage() (string, error) {
 	cmd := exec.Command("git", "log", "-1", "--pretty=%B")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err

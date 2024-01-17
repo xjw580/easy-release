@@ -15,11 +15,12 @@ import (
 )
 
 type MyWindow struct {
-	mainWin                                                                                                                                              *walk.MainWindow
-	goRadio, javaMavenRadio                                                                                                                              *walk.RadioButton
-	githubCheckBox, giteeCheckBox, pushCheckBox, packageCheckBox, releaseCheckBox, allProgramCheckBox, zipFileCheckBox, jarFileCheckBox, exeFileCheckBox *walk.CheckBox
-	versionLineEdit                                                                                                                                      *walk.LineEdit
-	logTextEdit, commitMsgTextEdit                                                                                                                       *walk.TextEdit
+	mainWin                                                                                                                                                              *walk.MainWindow
+	goRadio, javaMavenRadio                                                                                                                                              *walk.RadioButton
+	githubCheckBox, giteeCheckBox, pushCheckBox, packageCheckBox, releaseCheckBox, deployCheckBox, allProgramCheckBox, zipFileCheckBox, jarFileCheckBox, exeFileCheckBox *walk.CheckBox
+	versionLineEdit                                                                                                                                                      *walk.LineEdit
+	logTextEdit, commitMsgTextEdit                                                                                                                                       *walk.TextEdit
+	packageComposite, deployComposite, pushComposite, releaseComposite                                                                                                   *walk.Composite
 }
 
 const (
@@ -34,9 +35,9 @@ var (
 
 func init() {
 	var err error
-	programIco, err = walk.Resources.Image("embedded_favicon.ico")
+	programIco, err = walk.Resources.Image("easy-release_static/favicon.ico")
 	if err != nil {
-		log.Println("embedded_favicon.ico读取失败")
+		log.Println("favicon.ico读取失败")
 	}
 }
 
@@ -99,6 +100,7 @@ func ShowMain() {
 								mw.zipFileCheckBox.SetChecked(true)
 								mw.jarFileCheckBox.SetChecked(true)
 								mw.exeFileCheckBox.SetChecked(false)
+								mw.deployCheckBox.SetEnabled(true)
 							}
 						},
 					},
@@ -112,6 +114,7 @@ func ShowMain() {
 								mw.zipFileCheckBox.SetChecked(false)
 								mw.jarFileCheckBox.SetChecked(false)
 								mw.exeFileCheckBox.SetChecked(true)
+								mw.deployCheckBox.SetEnabled(false)
 							}
 						},
 					},
@@ -257,25 +260,116 @@ func ShowMain() {
 					Label{
 						Text: "过程：",
 					},
-					CheckBox{
-						AssignTo: &mw.packageCheckBox,
-						Text:     "打包",
-						OnClicked: func() {
-							progressCheck()
+					Composite{
+						AssignTo: &mw.packageComposite,
+						Layout:   HBox{},
+						Children: []Widget{
+							CheckBox{
+								MaxSize: Size{
+									Width: 46,
+								},
+								AssignTo: &mw.packageCheckBox,
+								Text:     "打包",
+								OnClicked: func() {
+									progressCheck()
+								},
+							},
+							ImageView{
+								Image:   "easy-release_static/loading.png",
+								Visible: false,
+							},
+							ImageView{
+								Image:   "easy-release_static/ok.png",
+								Visible: false,
+							},
+							ImageView{
+								Image:   "easy-release_static/fail.png",
+								Visible: false,
+							},
 						},
 					},
-					CheckBox{
-						AssignTo: &mw.pushCheckBox,
-						Text:     "推送",
-						OnClicked: func() {
-							progressCheck()
+					Composite{
+						AssignTo: &mw.deployComposite,
+						Layout:   HBox{},
+						Children: []Widget{
+							CheckBox{
+								MaxSize: Size{
+									Width: 46,
+								},
+								AssignTo: &mw.deployCheckBox,
+								Text:     "部署",
+								OnClicked: func() {
+									progressCheck()
+								},
+							},
+							ImageView{
+								Image:   "easy-release_static/loading.png",
+								Visible: false,
+							},
+							ImageView{
+								Image:   "easy-release_static/ok.png",
+								Visible: false,
+							},
+							ImageView{
+								Image:   "easy-release_static/fail.png",
+								Visible: false,
+							},
 						},
 					},
-					CheckBox{
-						AssignTo: &mw.releaseCheckBox,
-						Text:     "发布",
-						OnClicked: func() {
-							progressCheck()
+					Composite{
+						AssignTo: &mw.pushComposite,
+						Layout:   HBox{},
+						Children: []Widget{
+							CheckBox{
+								MaxSize: Size{
+									Width: 46,
+								},
+								AssignTo: &mw.pushCheckBox,
+								Text:     "推送",
+								OnClicked: func() {
+									progressCheck()
+								},
+							},
+							ImageView{
+								Image:   "easy-release_static/loading.png",
+								Visible: false,
+							},
+							ImageView{
+								Image:   "easy-release_static/ok.png",
+								Visible: false,
+							},
+							ImageView{
+								Image:   "easy-release_static/fail.png",
+								Visible: false,
+							},
+						},
+					},
+					Composite{
+						AssignTo: &mw.releaseComposite,
+						Layout:   HBox{},
+						Children: []Widget{
+							CheckBox{
+								MaxSize: Size{
+									Width: 46,
+								},
+								AssignTo: &mw.releaseCheckBox,
+								Text:     "发布",
+								OnClicked: func() {
+									progressCheck()
+								},
+							},
+							ImageView{
+								Image:   "easy-release_static/loading.png",
+								Visible: false,
+							},
+							ImageView{
+								Image:   "easy-release_static/ok.png",
+								Visible: false,
+							},
+							ImageView{
+								Image:   "easy-release_static/fail.png",
+								Visible: false,
+							},
 						},
 					},
 					PushButton{
@@ -284,6 +378,22 @@ func ShowMain() {
 						OnClicked: func() {
 							go func() {
 								//setAlwaysOnTop(mw.mainWin.Handle(), true)
+								var list = mw.packageComposite.Children()
+								for i := 1; i < list.Len(); i++ {
+									list.At(i).SetVisible(false)
+								}
+								list = mw.deployComposite.Children()
+								for i := 1; i < list.Len(); i++ {
+									list.At(i).SetVisible(false)
+								}
+								list = mw.pushComposite.Children()
+								for i := 1; i < list.Len(); i++ {
+									list.At(i).SetVisible(false)
+								}
+								list = mw.releaseComposite.Children()
+								for i := 1; i < list.Len(); i++ {
+									list.At(i).SetVisible(false)
+								}
 								mw.logTextEdit.AppendText("++++++++++++++++++++开始执行++++++++++++++++++++\r\n")
 								/*项目类型*/
 								var project release.ProjectType
@@ -292,9 +402,27 @@ func ShowMain() {
 								} else if mw.goRadio.Checked() {
 									project = new(release.GoProject)
 								}
-								/*package*/
-								if mw.packageCheckBox.Checked() {
-									project.PackageProject()
+								/*=====Package=====*/
+								if mw.packageCheckBox.Checked() && mw.packageCheckBox.Enabled() {
+									children := mw.packageComposite.Children()
+									children.At(1).SetVisible(true)
+									if project.PackageProject() {
+										children.At(2).SetVisible(true)
+									} else {
+										children.At(3).SetVisible(true)
+									}
+									children.At(1).SetVisible(false)
+								}
+								/*=====Deploy=====*/
+								if mw.deployCheckBox.Checked() && mw.deployCheckBox.Enabled() {
+									children := mw.deployComposite.Children()
+									children.At(1).SetVisible(true)
+									if project.DeployPackage() {
+										children.At(2).SetVisible(true)
+									} else {
+										children.At(3).SetVisible(true)
+									}
+									children.At(1).SetVisible(false)
 								}
 								/*git平台*/
 								var platforms []release.GitPlatform
@@ -304,12 +432,21 @@ func ShowMain() {
 								if mw.giteeCheckBox.Checked() {
 									platforms = append(platforms, release.GiteePlatform)
 								}
-								/*push*/
-								if mw.pushCheckBox.Checked() {
-									project.PushPlatform(platforms)
+								/*=====Push=====*/
+								if mw.pushCheckBox.Checked() && mw.pushCheckBox.Enabled() {
+									children := mw.pushComposite.Children()
+									children.At(1).SetVisible(true)
+									if project.PushPlatform(platforms) {
+										children.At(2).SetVisible(true)
+									} else {
+										children.At(3).SetVisible(true)
+									}
+									children.At(1).SetVisible(false)
 								}
-								/*release*/
-								if mw.releaseCheckBox.Checked() {
+								/*=====Release=====*/
+								if mw.releaseCheckBox.Checked() && mw.releaseCheckBox.Enabled() {
+									children := mw.releaseComposite.Children()
+									children.At(1).SetVisible(true)
 									var fileTypes []string
 									if mw.zipFileCheckBox.Checked() {
 										fileTypes = append(fileTypes, mw.zipFileCheckBox.Text())
@@ -320,7 +457,12 @@ func ShowMain() {
 									if mw.exeFileCheckBox.Checked() {
 										fileTypes = append(fileTypes, mw.exeFileCheckBox.Text())
 									}
-									project.ReleasePackage(fileTypes, mw.commitMsgTextEdit.Text(), mw.versionLineEdit.Text(), platforms)
+									if project.ReleasePackage(fileTypes, mw.commitMsgTextEdit.Text(), mw.versionLineEdit.Text(), platforms) {
+										children.At(2).SetVisible(true)
+									} else {
+										children.At(3).SetVisible(true)
+									}
+									children.At(1).SetVisible(false)
 								}
 								mw.logTextEdit.AppendText("++++++++++++++++++++执行完毕++++++++++++++++++++\r\n")
 								mw.logTextEdit.AppendText("\r\n                            .__          __             .___\r\n  ____  ____   _____ ______ |  |   _____/  |_  ____   __| _/\r\n_/ ___\\/  _ \\ /     \\\\____ \\|  | _/ __ \\   __\\/ __ \\ / __ | \r\n\\  \\__(  <_> )  Y Y  \\  |_> >  |_\\  ___/|  | \\  ___// /_/ | \r\n \\___  >____/|__|_|  /   __/|____/\\___  >__|  \\___  >____ | \r\n     \\/            \\/|__|             \\/          \\/     \\/ \r\n")
@@ -336,10 +478,12 @@ func ShowMain() {
 								mw.pushCheckBox.SetChecked(true)
 								mw.packageCheckBox.SetChecked(true)
 								mw.releaseCheckBox.SetChecked(true)
+								mw.deployCheckBox.SetChecked(true)
 							} else {
 								mw.pushCheckBox.SetChecked(false)
 								mw.packageCheckBox.SetChecked(false)
 								mw.releaseCheckBox.SetChecked(false)
+								mw.deployCheckBox.SetChecked(false)
 							}
 						},
 					},

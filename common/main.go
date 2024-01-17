@@ -11,7 +11,7 @@ import (
 
 const (
 	ProgramName          = "easy-release"
-	ConfigFilePath       = "config.json"
+	ConfigFilePath       = "easy-release_static/config.json"
 	GlobalConfigFilePath = "C:\\ProgramData\\" + ProgramName + "\\config.json"
 )
 

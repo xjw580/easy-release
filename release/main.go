@@ -37,48 +37,67 @@ const (
 type GitPlatform string
 
 type ProjectType interface {
-	PushPlatform(gitPlatform []GitPlatform)
-	PackageProject()
-	ReleasePackage(fileTypes []string, commitMessage, releaseVersion string, gitPlatform []GitPlatform)
+	PushPlatform(gitPlatform []GitPlatform) bool
+	PackageProject() bool
+	ReleasePackage(fileTypes []string, commitMessage, releaseVersion string, gitPlatform []GitPlatform) bool
+	DeployPackage() bool
 }
 
 type JavaMavenProject struct {
 }
 
-func (project JavaMavenProject) PushPlatform(gitPlatform []GitPlatform) {
-	pushAll(gitPlatform)
+func (project JavaMavenProject) PushPlatform(gitPlatform []GitPlatform) bool {
+	return pushAll(gitPlatform)
 }
-func (project JavaMavenProject) PackageProject() {
+func (project JavaMavenProject) PackageProject() bool {
 	guiLogs.AppendLog("++++++++++++++++++++开始打包++++++++++++++++++++")
 	err := execCMD("mvn", "clean", "package")
 	if err == nil {
-		guiLogs.AppendLog("++++++++++++++++++++打包成功")
+		guiLogs.AppendLog("==========>打包成功<==========👌👌👌")
+		return true
 	} else {
-		guiLogs.AppendLog("打包失败,err:" + err.Error())
+		guiLogs.AppendLog("=====>打包失败,err:" + err.Error())
+		return false
 	}
 }
-func (project JavaMavenProject) ReleasePackage(fileTypes []string, commitMessage, releaseVersion string, gitPlatform []GitPlatform) {
-	releaseAll(fileTypes, commitMessage, releaseVersion, "target", gitPlatform)
+func (project JavaMavenProject) ReleasePackage(fileTypes []string, commitMessage, releaseVersion string, gitPlatform []GitPlatform) bool {
+	return releaseAll(fileTypes, commitMessage, releaseVersion, "target", gitPlatform)
+}
+func (project JavaMavenProject) DeployPackage() bool {
+	guiLogs.AppendLog("++++++++++++++++++++开始部署++++++++++++++++++++")
+	err := execCMD("mvn", "deploy")
+	if err == nil {
+		guiLogs.AppendLog("==========>部署成功<==========👌👌👌")
+		return true
+	} else {
+		guiLogs.AppendLog("=====>部署失败,err:" + err.Error())
+		return false
+	}
 }
 
 type GoProject struct {
 }
 
-func (project GoProject) PushPlatform(gitPlatform []GitPlatform) {
-	pushAll(gitPlatform)
+func (project GoProject) PushPlatform(gitPlatform []GitPlatform) bool {
+	return pushAll(gitPlatform)
 }
-func (project GoProject) PackageProject() {
+func (project GoProject) PackageProject() bool {
 	guiLogs.AppendLog("++++++++++++++++++++开始打包++++++++++++++++++++")
 	delExeFile()
 	err := execCMD("go", "build", "-ldflags", "-s -w -H=windowsgui")
 	if err == nil {
-		guiLogs.AppendLog("++++++++++++++++++++打包成功")
+		guiLogs.AppendLog("==========>打包成功<==========👌👌👌")
+		return true
 	} else {
-		guiLogs.AppendLog("打包失败,err:" + err.Error())
+		guiLogs.AppendLog("=====>打包失败,err:" + err.Error())
+		return false
 	}
 }
-func (project GoProject) ReleasePackage(fileTypes []string, commitMessage, releaseVersion string, gitPlatform []GitPlatform) {
-	releaseAll(fileTypes, commitMessage, releaseVersion, "", gitPlatform)
+func (project GoProject) ReleasePackage(fileTypes []string, commitMessage, releaseVersion string, gitPlatform []GitPlatform) bool {
+	return releaseAll(fileTypes, commitMessage, releaseVersion, "", gitPlatform)
+}
+func (project GoProject) DeployPackage() bool {
+	return true
 }
 
 func ParseVersionAndPreRelease(commitMessage string) (string, bool) {
@@ -142,15 +161,31 @@ func delExeFile() {
 	fmt.Println("Deletion complete.")
 }
 
-func releaseAll(fileTypes []string, commitMessage, releaseTag, packageDir string, gitPlatform []GitPlatform) {
+func releaseAll(fileTypes []string, commitMessage, releaseTag, packageDir string, gitPlatform []GitPlatform) bool {
+	var wg sync.WaitGroup
+	var result = true
 	for _, platform := range gitPlatform {
 		switch platform {
 		case GiteePlatform:
-			releaseGitee(fileTypes, commitMessage, releaseTag, packageDir)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if !releaseGitee(fileTypes, commitMessage, releaseTag, packageDir) {
+					result = false
+				}
+			}()
 		case GithubPlatform:
-			releaseGithub(fileTypes, commitMessage, releaseTag, packageDir)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if !releaseGithub(fileTypes, commitMessage, releaseTag, packageDir) {
+					result = false
+				}
+			}()
 		}
 	}
+	wg.Wait()
+	return result
 }
 
 /*
@@ -170,7 +205,7 @@ func getReleaseMsg(fileTypes []string, commitMessage, releaseVersion, packageDir
 	return releaseVersion, title, commitMessage, prerelease, packageFile
 }
 
-func releaseGithub(fileTypes []string, commitMessage, releaseVersion, packageDir string) {
+func releaseGithub(fileTypes []string, commitMessage, releaseVersion, packageDir string) bool {
 	guiLogs.AppendLog("++++++++++++++++++++开始发布到Github++++++++++++++++++++")
 	tagName, name, body, prerelease, packageFile := getReleaseMsg(fileTypes, commitMessage, releaseVersion, packageDir)
 	// 创建 GitHub 客户端
@@ -193,22 +228,26 @@ func releaseGithub(fileTypes []string, commitMessage, releaseVersion, packageDir
 		guiLogs.AppendLog(err.Error())
 		release, _, err = client.Repositories.CreateRelease(ctx, githubRepository.Owner, githubRepository.RepoName, createRelease)
 		if err != nil {
-			guiLogs.AppendLog("创建release失败，err:" + err.Error())
-			return
+			guiLogs.AppendLog("Github=====>创建release失败，err:" + err.Error())
+			return false
 		}
-		guiLogs.AppendLog("++++++++++++++++++++创建release成功")
+		guiLogs.AppendLog("Github==========>创建release成功<==========👌👌👌")
 	} else {
-		guiLogs.AppendLog("已存在release")
+		guiLogs.AppendLog("Github=====>已存在release")
 		client.Repositories.EditRelease(ctx, githubRepository.Owner, githubRepository.RepoName, release.GetID(), createRelease)
 	}
-	guiLogs.AppendLog("开始上传")
+	guiLogs.AppendLog("Github=====>开始上传")
+	var result = true
 	for _, s := range packageFile {
-		uploadFileToGithubRelease(s, client, ctx, release, *githubRepository)
+		if !uploadFileToGithubRelease(s, client, ctx, release, *githubRepository) {
+			result = false
+		}
 	}
-	guiLogs.AppendLog("上传结束")
+	guiLogs.AppendLog("Github=====>上传结束")
+	return result
 }
 
-func releaseGitee(fileTypes []string, commitMessage, releaseVersion, packageDir string) {
+func releaseGitee(fileTypes []string, commitMessage, releaseVersion, packageDir string) bool {
 	guiLogs.AppendLog("++++++++++++++++++++开始发布到Gitee++++++++++++++++++++")
 	tagName, name, body, prerelease, _ := getReleaseMsg(fileTypes, commitMessage, releaseVersion, packageDir)
 	createReleaseURL := fmt.Sprintf("https://gitee.com/api/v5/repos/%s/%s/releases?access_token=%s", giteeRepository.Owner, giteeRepository.RepoName, giteeRepository.Token)
@@ -224,62 +263,82 @@ func releaseGitee(fileTypes []string, commitMessage, releaseVersion, packageDir 
 		Post(createReleaseURL)
 
 	if err != nil {
-		guiLogs.AppendLog("Failed to create release,err:" + err.Error())
-		return
+		guiLogs.AppendLog("Gitee=====>Failed to create release,err:" + err.Error())
+		return false
 	}
 
 	// 检查创建 Release 的响应状态码
 	if createReleaseResponse.StatusCode() != 201 {
-		guiLogs.AppendLog("Failed to create release. Status code:" + strconv.Itoa(createReleaseResponse.StatusCode()))
-		guiLogs.AppendLog("Response body:" + createReleaseResponse.String())
-		return
+		guiLogs.AppendLog("Gitee=====>Failed to create release. Status code:" + strconv.Itoa(createReleaseResponse.StatusCode()))
+		guiLogs.AppendLog("Gitee=====>Response body:" + createReleaseResponse.String())
+		return false
 	}
-	guiLogs.AppendLog("++++++++++++++++++++创建release成功")
+	guiLogs.AppendLog("Gitee==========>创建release成功<==========👌👌👌")
+	return true
 }
 
-func pushAll(gitPlatform []GitPlatform) {
+func pushAll(gitPlatform []GitPlatform) bool {
+	var wg sync.WaitGroup
+	var result bool = true
 	for _, platform := range gitPlatform {
 		switch platform {
 		case GiteePlatform:
-			guiLogs.AppendLog("++++++++++++++++++++开始Push到Gitee++++++++++++++++++++")
-			push("Gitee", "master", "master")
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				guiLogs.AppendLog("++++++++++++++++++++开始Push到Gitee++++++++++++++++++++")
+				if !push("Gitee", "master", "master") {
+					result = false
+				}
+			}()
 		case GithubPlatform:
-			guiLogs.AppendLog("++++++++++++++++++++开始Push到Github++++++++++++++++++++")
-			push("Github", "master", "master")
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				guiLogs.AppendLog("++++++++++++++++++++开始Push到Github++++++++++++++++++++")
+				if !push("Github", "master", "master") {
+					result = false
+				}
+			}()
 		}
 	}
+	wg.Wait()
+	return result
 }
 
-func push(origin, localBranch, remoteBranch string) {
+func push(origin, localBranch, remoteBranch string) bool {
 	err := execCMD("git", "push", origin, localBranch+":"+remoteBranch)
 	if err == nil {
-		guiLogs.AppendLog("++++++++++++++++++++推送到" + origin + "成功")
+		guiLogs.AppendLog("==========>推送到" + origin + "成功<==========👌👌👌")
+		return true
 	} else {
-		guiLogs.AppendLog("推送到" + origin + "失败,err：" + err.Error())
+		guiLogs.AppendLog("=====>推送到" + origin + "失败,err：" + err.Error())
+		return false
 	}
 }
 
-func uploadFileToGithubRelease(path string, client *github.Client, ctx context.Context, release *github.RepositoryRelease, repository common.GitRepository) {
+func uploadFileToGithubRelease(path string, client *github.Client, ctx context.Context, release *github.RepositoryRelease, repository common.GitRepository) bool {
 	// 打开本地文件
 	file, err := os.Open(path)
 	if err != nil {
-		guiLogs.AppendLog("无法打开文件：" + err.Error())
-		return
+		guiLogs.AppendLog("Github=====>无法打开上传文件：" + err.Error())
+		return false
 	}
 	defer file.Close()
 	fileName := filepath.Base(file.Name())
-	guiLogs.AppendLog("上传文件：" + fileName)
+	guiLogs.AppendLog("Github=====>上传文件：" + fileName)
 	// 创建上传选项
 	opts := &github.UploadOptions{Name: fileName}
 
 	// 上传文件到 GitHub Release
 	asset, _, err := client.Repositories.UploadReleaseAsset(ctx, repository.Owner, repository.RepoName, release.GetID(), opts, file)
 	if err != nil {
-		guiLogs.AppendLog(fileName + "上传失败,err:" + err.Error())
-		return
+		guiLogs.AppendLog("Github=====>" + fileName + "上传失败,err:" + err.Error())
+		return false
 	}
 
-	guiLogs.AppendLog("++++++++++++++++++++" + fileName + "上传成功, Asset ID:" + strconv.Itoa(int(asset.GetID())))
+	guiLogs.AppendLog("Github==========>" + fileName + "上传成功, Asset ID:" + strconv.Itoa(int(asset.GetID())) + "<==========👌👌👌")
+	return true
 }
 
 func getJavaMavenPackageFile(fileTypes []string, packageDir string) []string {

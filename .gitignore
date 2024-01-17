@@ -29,4 +29,4 @@ build/
 *.exe
 *.xml
 *.json
-embedded_*
+/easy-release_static/*.json

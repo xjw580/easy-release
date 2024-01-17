@@ -2,35 +2,40 @@ package main
 
 import (
 	"easy-release/gui"
+	"embed"
 	_ "embed"
-	"fmt"
+	"log"
 	"os"
 )
 
-//go:embed favicon.ico
-var embeddedFile []byte
+//go:embed easy-release_static/*
+var content embed.FS
 
 func main() {
-	createIco()
+	saveAll()
 	gui.ShowMain()
 }
 
-func createIco() {
-	_, err2 := os.Open("embedded_favicon.ico")
-	if err2 == nil {
-		return
+func createFile(path string, data []byte) {
+	_, err2 := os.Open(path)
+	if err2 != nil {
+		err := saveEmbeddedFile(path, data)
+		log.Println(err)
 	}
-	// 保存嵌入的文件到磁盘
-	err := saveEmbeddedFile("embedded_favicon.ico", embeddedFile)
-	if err != nil {
-		fmt.Println("Error saving embedded file:", err)
-		return
-	}
-
-	fmt.Println("Embedded file saved successfully.")
+}
+func saveAll() {
+	file, _ := content.ReadFile("easy-release_static/favicon.ico")
+	file1, _ := content.ReadFile("easy-release_static/loading.png")
+	file2, _ := content.ReadFile("easy-release_static/ok.png")
+	file3, _ := content.ReadFile("easy-release_static/fail.png")
+	createFile("easy-release_static/favicon.ico", file)
+	createFile("easy-release_static/loading.png", file1)
+	createFile("easy-release_static/ok.png", file2)
+	createFile("easy-release_static/fail.png", file3)
 }
 
 func saveEmbeddedFile(filename string, data []byte) error {
+	_ = os.Mkdir("easy-release_static", os.ModePerm)
 	file, err := os.Create(filename)
 	if err != nil {
 		return err

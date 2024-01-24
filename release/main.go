@@ -215,9 +215,6 @@ func releaseGithub(fileTypes []string, commitMessage, releaseVersion, packageDir
 	client := github.NewClient(tc)
 	// 获取已有的 Release，如果不存在则创建
 	release, _, err := client.Repositories.GetReleaseByTag(ctx, githubRepository.Owner, githubRepository.RepoName, releaseVersion)
-	if strings.HasPrefix(tagName, "v") {
-		tagName = strings.TrimPrefix(tagName, "v")
-	}
 	// 创建新的 Release
 	createRelease := &github.RepositoryRelease{
 		TagName:         github.String(tagName),
@@ -254,9 +251,6 @@ func releaseGitee(fileTypes []string, commitMessage, releaseVersion, packageDir 
 	guiLogs.AppendLog("++++++++++++++++++++开始发布到Gitee++++++++++++++++++++")
 	tagName, name, body, prerelease, _ := getReleaseMsg(fileTypes, commitMessage, releaseVersion, packageDir)
 	createReleaseURL := fmt.Sprintf("https://gitee.com/api/v5/repos/%s/%s/releases?access_token=%s", giteeRepository.Owner, giteeRepository.RepoName, giteeRepository.Token)
-	if strings.HasPrefix(tagName, "v") {
-		tagName = strings.TrimPrefix(tagName, "v")
-	}
 	createReleaseResponse, err := resty.New().R().
 		SetHeader("Content-Type", "application/json").
 		SetBody(map[string]interface{}{

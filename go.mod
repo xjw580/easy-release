@@ -12,6 +12,7 @@ require (
 )
 
 require (
+	fyne.io/fyne/v2 v2.4.3 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	golang.org/x/net v0.20.0 // indirect

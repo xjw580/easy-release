@@ -107,7 +107,7 @@ func ParseVersionAndPreRelease(commitMessage string) (string, bool) {
 		version := strings.TrimSpace(lines[0])
 
 		// 判断是否预发布
-		prerelease := strings.HasSuffix(version, "DEV") || strings.HasSuffix(version, "BETA")
+		prerelease := !strings.HasSuffix(version, "GA")
 
 		return version, prerelease
 	}

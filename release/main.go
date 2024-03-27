@@ -39,7 +39,7 @@ type GitPlatform string
 type ProjectType interface {
 	PushPlatform(gitPlatform []GitPlatform) bool
 	PackageProject() bool
-	ReleasePackage(fileTypes []string, commitMessage, releaseVersion string, gitPlatform []GitPlatform) bool
+	ReleasePackage(fileTypes []string, commitMessage, releaseVersion string, gitPlatform []GitPlatform, isPreRelease bool) bool
 	DeployPackage() bool
 }
 
@@ -60,8 +60,8 @@ func (project JavaMavenProject) PackageProject() bool {
 		return false
 	}
 }
-func (project JavaMavenProject) ReleasePackage(fileTypes []string, commitMessage, releaseVersion string, gitPlatform []GitPlatform) bool {
-	return releaseAll(fileTypes, commitMessage, releaseVersion, "target", gitPlatform)
+func (project JavaMavenProject) ReleasePackage(fileTypes []string, commitMessage, releaseVersion string, gitPlatform []GitPlatform, isPreRelease bool) bool {
+	return releaseAll(fileTypes, commitMessage, releaseVersion, "target", gitPlatform, isPreRelease)
 }
 func (project JavaMavenProject) DeployPackage() bool {
 	guiLogs.AppendLog("++++++++++++++++++++开始部署++++++++++++++++++++")
@@ -93,13 +93,14 @@ func (project GoProject) PackageProject() bool {
 		return false
 	}
 }
-func (project GoProject) ReleasePackage(fileTypes []string, commitMessage, releaseVersion string, gitPlatform []GitPlatform) bool {
-	return releaseAll(fileTypes, commitMessage, releaseVersion, "", gitPlatform)
+func (project GoProject) ReleasePackage(fileTypes []string, commitMessage, releaseVersion string, gitPlatform []GitPlatform, isPreRelease bool) bool {
+	return releaseAll(fileTypes, commitMessage, releaseVersion, "", gitPlatform, isPreRelease)
 }
 func (project GoProject) DeployPackage() bool {
 	return true
 }
 
+// ParseVersionAndPreRelease @return: 版本号,是否预览版
 func ParseVersionAndPreRelease(commitMessage string) (string, bool) {
 	lines := strings.Split(commitMessage, "\n")
 	if len(lines) > 0 {
@@ -161,7 +162,7 @@ func delExeFile() {
 	fmt.Println("Deletion complete.")
 }
 
-func releaseAll(fileTypes []string, commitMessage, releaseTag, packageDir string, gitPlatform []GitPlatform) bool {
+func releaseAll(fileTypes []string, commitMessage, releaseTag, packageDir string, gitPlatform []GitPlatform, isPreRelease bool) bool {
 	var wg sync.WaitGroup
 	var result = true
 	for _, platform := range gitPlatform {
@@ -170,7 +171,7 @@ func releaseAll(fileTypes []string, commitMessage, releaseTag, packageDir string
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				if !releaseGitee(fileTypes, commitMessage, releaseTag, packageDir) {
+				if !releaseGitee(fileTypes, commitMessage, releaseTag, packageDir, isPreRelease) {
 					result = false
 				}
 			}()
@@ -178,7 +179,7 @@ func releaseAll(fileTypes []string, commitMessage, releaseTag, packageDir string
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				if !releaseGithub(fileTypes, commitMessage, releaseTag, packageDir) {
+				if !releaseGithub(fileTypes, commitMessage, releaseTag, packageDir, isPreRelease) {
 					result = false
 				}
 			}()
@@ -205,9 +206,9 @@ func getReleaseMsg(fileTypes []string, commitMessage, releaseVersion, packageDir
 	return releaseVersion, title, commitMessage, prerelease, packageFile
 }
 
-func releaseGithub(fileTypes []string, commitMessage, releaseVersion, packageDir string) bool {
+func releaseGithub(fileTypes []string, commitMessage, releaseVersion, packageDir string, isPreRelease bool) bool {
 	guiLogs.AppendLog("++++++++++++++++++++开始发布到Github++++++++++++++++++++")
-	tagName, name, body, prerelease, packageFile := getReleaseMsg(fileTypes, commitMessage, releaseVersion, packageDir)
+	tagName, name, body, _, packageFile := getReleaseMsg(fileTypes, commitMessage, releaseVersion, packageDir)
 	// 创建 GitHub 客户端
 	ctx := context.Background()
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: githubRepository.Token})
@@ -222,7 +223,7 @@ func releaseGithub(fileTypes []string, commitMessage, releaseVersion, packageDir
 		TargetCommitish: github.String("master"), // 或者你的默认分支
 		Body:            github.String(body),
 		//Draft:           github.Bool(true),
-		Prerelease: github.Bool(prerelease),
+		Prerelease: github.Bool(isPreRelease),
 	}
 	if err != nil {
 		guiLogs.AppendLog(err.Error())
@@ -247,9 +248,9 @@ func releaseGithub(fileTypes []string, commitMessage, releaseVersion, packageDir
 	return result
 }
 
-func releaseGitee(fileTypes []string, commitMessage, releaseVersion, packageDir string) bool {
+func releaseGitee(fileTypes []string, commitMessage, releaseVersion, packageDir string, isPreRelease bool) bool {
 	guiLogs.AppendLog("++++++++++++++++++++开始发布到Gitee++++++++++++++++++++")
-	tagName, name, body, prerelease, _ := getReleaseMsg(fileTypes, commitMessage, releaseVersion, packageDir)
+	tagName, name, body, _, _ := getReleaseMsg(fileTypes, commitMessage, releaseVersion, packageDir)
 	createReleaseURL := fmt.Sprintf("https://gitee.com/api/v5/repos/%s/%s/releases?access_token=%s", giteeRepository.Owner, giteeRepository.RepoName, giteeRepository.Token)
 	createReleaseResponse, err := resty.New().R().
 		SetHeader("Content-Type", "application/json").
@@ -258,7 +259,7 @@ func releaseGitee(fileTypes []string, commitMessage, releaseVersion, packageDir 
 			"name":             name,
 			"body":             body,
 			"target_commitish": "master",
-			"prerelease":       prerelease,
+			"prerelease":       isPreRelease,
 		}).
 		Post(createReleaseURL)
 

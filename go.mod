@@ -3,16 +3,15 @@ module easy-release
 go 1.21
 
 require (
+	github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc
 	github.com/go-resty/resty/v2 v2.11.0
 	github.com/google/go-github/v58 v58.0.0
 	github.com/lxn/walk v0.0.0-20210112085537-c389da54e794
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e
-	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	golang.org/x/oauth2 v0.16.0
 )
 
 require (
-	fyne.io/fyne/v2 v2.4.3 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	golang.org/x/net v0.20.0 // indirect

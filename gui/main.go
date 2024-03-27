@@ -3,11 +3,9 @@ package gui
 import (
 	"easy-release/common"
 	"easy-release/release"
-	_ "encoding/json"
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
 	"github.com/lxn/win"
-	_ "github.com/lxn/win"
 	"log"
 	"os"
 	"path/filepath"
@@ -15,12 +13,12 @@ import (
 )
 
 type MyWindow struct {
-	mainWin                                                                                                                                                              *walk.MainWindow
-	goRadio, javaMavenRadio                                                                                                                                              *walk.RadioButton
-	githubCheckBox, giteeCheckBox, pushCheckBox, packageCheckBox, releaseCheckBox, deployCheckBox, allProgramCheckBox, zipFileCheckBox, jarFileCheckBox, exeFileCheckBox *walk.CheckBox
-	versionLineEdit                                                                                                                                                      *walk.LineEdit
-	logTextEdit, commitMsgTextEdit                                                                                                                                       *walk.TextEdit
-	packageComposite, deployComposite, pushComposite, releaseComposite                                                                                                   *walk.Composite
+	mainWin                                                                                                                                                                                  *walk.MainWindow
+	goRadio, javaMavenRadio                                                                                                                                                                  *walk.RadioButton
+	githubCheckBox, giteeCheckBox, pushCheckBox, packageCheckBox, releaseCheckBox, deployCheckBox, allProgramCheckBox, zipFileCheckBox, jarFileCheckBox, exeFileCheckBox, preReleaseCheckBox *walk.CheckBox
+	versionLineEdit                                                                                                                                                                          *walk.LineEdit
+	logTextEdit, commitMsgTextEdit                                                                                                                                                           *walk.TextEdit
+	packageComposite, deployComposite, pushComposite, releaseComposite                                                                                                                       *walk.Composite
 }
 
 const (
@@ -48,8 +46,8 @@ func ShowMain() {
 		Icon:     programIco,
 		AssignTo: &mw.mainWin,
 		Bounds: Rectangle{
-			X:      int(getDisplayWidth()-winWidth) / 2,
-			Y:      int(getDisplayHeight()-winHeight-40) / 2,
+			X:      int(getDisplayWidth()-winWidth) >> 1,
+			Y:      int(getDisplayHeight()-winHeight-40) >> 1,
 			Width:  winWidth,
 			Height: winHeight,
 		},
@@ -190,6 +188,10 @@ func ShowMain() {
 										_ = mw.commitMsgTextEdit.SetFocus()
 									}
 								},
+							},
+							CheckBox{
+								AssignTo: &mw.preReleaseCheckBox,
+								Text:     "稳定版",
 							},
 						},
 						Row:    4,
@@ -457,7 +459,7 @@ func ShowMain() {
 									if mw.exeFileCheckBox.Checked() {
 										fileTypes = append(fileTypes, mw.exeFileCheckBox.Text())
 									}
-									if project.ReleasePackage(fileTypes, mw.commitMsgTextEdit.Text(), mw.versionLineEdit.Text(), platforms) {
+									if project.ReleasePackage(fileTypes, mw.commitMsgTextEdit.Text(), mw.versionLineEdit.Text(), platforms, !mw.preReleaseCheckBox.Checked()) {
 										children.At(2).SetVisible(true)
 									} else {
 										children.At(3).SetVisible(true)
@@ -514,8 +516,9 @@ func initMsg() {
 }
 func setVersionMsg() {
 	commitMessage, _ := release.GetLatestCommitMessage()
-	version, _ := release.ParseVersionAndPreRelease(commitMessage)
+	version, preRlease := release.ParseVersionAndPreRelease(commitMessage)
 	_ = mw.versionLineEdit.SetText(version)
+	mw.preReleaseCheckBox.SetChecked(!preRlease)
 	_ = mw.commitMsgTextEdit.SetText(commitMessage)
 }
 

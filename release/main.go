@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"unicode"
 )
 
 func init() {
@@ -108,7 +109,7 @@ func ParseVersionAndPreRelease(commitMessage string) (string, bool) {
 		version := strings.TrimSpace(lines[0])
 
 		// 判断是否预发布
-		prerelease := !strings.HasSuffix(version, "GA")
+		prerelease := !strings.HasSuffix(version, "GA") && !unicode.IsDigit(rune(version[len(version)-1]))
 
 		return version, prerelease
 	}

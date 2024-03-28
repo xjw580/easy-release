@@ -221,7 +221,7 @@ func releaseGithub(fileTypes []string, commitMessage, releaseVersion, packageDir
 	createRelease := &github.RepositoryRelease{
 		TagName:         github.String(tagName),
 		Name:            github.String(name),
-		TargetCommitish: github.String("master"), // 或者你的默认分支
+		TargetCommitish: github.String(getCurrentBranch()), // 或者你的默认分支
 		Body:            github.String(body),
 		//Draft:           github.Bool(true),
 		Prerelease: github.Bool(isPreRelease),
@@ -259,7 +259,7 @@ func releaseGitee(fileTypes []string, commitMessage, releaseVersion, packageDir 
 			"tag_name":         tagName,
 			"name":             name,
 			"body":             body,
-			"target_commitish": "master",
+			"target_commitish": getCurrentBranch(),
 			"prerelease":       isPreRelease,
 		}).
 		Post(createReleaseURL)
@@ -281,7 +281,8 @@ func releaseGitee(fileTypes []string, commitMessage, releaseVersion, packageDir 
 
 func pushAll(gitPlatform []GitPlatform) bool {
 	var wg sync.WaitGroup
-	var result bool = true
+	var result = true
+	branch := getCurrentBranch()
 	for _, platform := range gitPlatform {
 		switch platform {
 		case GiteePlatform:
@@ -289,7 +290,7 @@ func pushAll(gitPlatform []GitPlatform) bool {
 			go func() {
 				defer wg.Done()
 				guiLogs.AppendLog("++++++++++++++++++++开始Push到Gitee++++++++++++++++++++")
-				if !push("Gitee", "master", "master") {
+				if !push("Gitee", branch, branch) {
 					result = false
 				}
 			}()
@@ -298,7 +299,7 @@ func pushAll(gitPlatform []GitPlatform) bool {
 			go func() {
 				defer wg.Done()
 				guiLogs.AppendLog("++++++++++++++++++++开始Push到Github++++++++++++++++++++")
-				if !push("Github", "master", "master") {
+				if !push("Github", branch, branch) {
 					result = false
 				}
 			}()
@@ -429,4 +430,18 @@ func getFilesInDirectory(dirPath string, extensions []string) ([]string, error) 
 	}
 
 	return files, nil
+}
+
+// 获取当前git分支
+func getCurrentBranch() string {
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+
+	output, err := cmd.Output()
+	if err != nil {
+		fmt.Println("Error:", err)
+		return "master"
+	}
+
+	branch := strings.TrimSpace(string(output))
+	return branch
 }

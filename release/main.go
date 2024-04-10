@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"easy-release/common"
+	"errors"
 	"fmt"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/go-github/v58/github"
@@ -85,7 +86,7 @@ func (project GoProject) PushPlatform(gitPlatform []GitPlatform) bool {
 func (project GoProject) PackageProject() bool {
 	guiLogs.AppendLog("++++++++++++++++++++开始打包++++++++++++++++++++")
 	delExeFile()
-	err := execCMD("go", "build", "-ldflags", "-s -w -H=windowsgui")
+	err := execCMD("go", "build")
 	if err == nil {
 		guiLogs.AppendLog("==========>打包成功<==========👌👌👌")
 		return true
@@ -194,22 +195,28 @@ func releaseAll(fileTypes []string, commitMessage, releaseTag, packageDir string
 *
 return tagName, name, body, prerelease, packageFile
 */
-func getReleaseMsg(fileTypes []string, commitMessage, releaseVersion, packageDir string) (string, string, string, bool, []string) {
+func getReleaseMsg(fileTypes []string, commitMessage, releaseVersion, packageDir string) (string, string, string, bool, []string, error) {
 	version, prerelease := ParseVersionAndPreRelease(commitMessage)
 	commitMessage = "#### " + commitMessage
 	packageFile := getJavaMavenPackageFile(fileTypes, packageDir)
+	if packageFile == nil || len(packageFile) == 0 {
+		return "", "", "", false, nil, errors.New("packageFile为空")
+	}
 	fileName := filepath.Base(packageFile[0])
 	index := strings.LastIndex(fileName, ".")
 	title := fileName[:index]
 	if !strings.Contains(title, "v") {
 		title = title + "_" + version
 	}
-	return releaseVersion, title, commitMessage, prerelease, packageFile
+	return releaseVersion, title, commitMessage, prerelease, packageFile, nil
 }
 
 func releaseGithub(fileTypes []string, commitMessage, releaseVersion, packageDir string, isPreRelease bool) bool {
 	guiLogs.AppendLog("++++++++++++++++++++开始发布到Github++++++++++++++++++++")
-	tagName, name, body, _, packageFile := getReleaseMsg(fileTypes, commitMessage, releaseVersion, packageDir)
+	tagName, name, body, _, packageFile, err := getReleaseMsg(fileTypes, commitMessage, releaseVersion, packageDir)
+	if err != nil {
+		return false
+	}
 	// 创建 GitHub 客户端
 	ctx := context.Background()
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: githubRepository.Token})
@@ -251,7 +258,10 @@ func releaseGithub(fileTypes []string, commitMessage, releaseVersion, packageDir
 
 func releaseGitee(fileTypes []string, commitMessage, releaseVersion, packageDir string, isPreRelease bool) bool {
 	guiLogs.AppendLog("++++++++++++++++++++开始发布到Gitee++++++++++++++++++++")
-	tagName, name, body, _, _ := getReleaseMsg(fileTypes, commitMessage, releaseVersion, packageDir)
+	tagName, name, body, _, _, err := getReleaseMsg(fileTypes, commitMessage, releaseVersion, packageDir)
+	if err != nil {
+		return false
+	}
 	createReleaseURL := fmt.Sprintf("https://gitee.com/api/v5/repos/%s/%s/releases?access_token=%s", giteeRepository.Owner, giteeRepository.RepoName, giteeRepository.Token)
 	createReleaseResponse, err := resty.New().R().
 		SetHeader("Content-Type", "application/json").
@@ -416,7 +426,8 @@ func getFilesInDirectory(dirPath string, extensions []string) ([]string, error) 
 
 		// 检查文件是否是目标扩展名之一
 		for _, ext := range extensions {
-			if strings.HasSuffix(strings.ToLower(info.Name()), ext) {
+			lowerName := strings.ToLower(info.Name())
+			if strings.HasSuffix(lowerName, ext) && !strings.Contains(lowerName, "javadoc") && !strings.Contains(lowerName, "sources") {
 				files = append(files, path)
 				break
 			}
